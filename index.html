@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stimmungstagebuch</title>
+<meta name="theme-color" content="#7a4f8f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stimmung">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Stimmungstagebuch</h1>
+  <nav id="tabs">
+    <button data-tab="eintrag" class="active">Eintrag</button>
+    <button data-tab="auswertung">Auswertung</button>
+    <button data-tab="daten">Daten</button>
+  </nav>
+</header>
+
+<main>
+<!-- EINTRAG -->
+<section id="tab-eintrag" class="tab active">
+  <div id="reminder" class="banner" hidden>Für heute fehlt noch ein Eintrag.</div>
+
+  <div class="datebar">
+    <button id="prev" aria-label="Vortag">‹</button>
+    <div>
+      <input type="date" id="date">
+      <div id="datehint" class="muted"></div>
+    </div>
+    <button id="next" aria-label="Folgetag">›</button>
+  </div>
+
+  <form id="form" autocomplete="off">
+    <div class="card">
+      <h2>Heute</h2>
+      <label class="check"><input type="checkbox" name="periode"><span>Periode</span></label>
+      <label class="check"><input type="checkbox" name="sport"><span>Sport</span></label>
+      <label class="check"><input type="checkbox" name="schlaf"><span>Gut geschlafen</span></label>
+      <label class="check"><input type="checkbox" name="wein"><span>Wein</span></label>
+      <label class="check"><input type="checkbox" name="start"><span>Leichter Start in den Tag</span></label>
+    </div>
+
+    <div class="card">
+      <h2>Wie war der heutige Tag?</h2>
+      <div class="big" id="tagval">5</div>
+      <input type="range" name="tag" id="tag" min="0" max="10" step="1" value="5">
+      <div class="ends"><span>0 · schlecht</span><span>super · 10</span></div>
+    </div>
+
+    <div class="card" id="tri"></div>
+
+    <button type="submit" class="primary" id="save">Speichern</button>
+    <div id="status" class="muted center"></div>
+  </form>
+</section>
+
+<!-- AUSWERTUNG -->
+<section id="tab-auswertung" class="tab">
+  <div id="aw-hint" class="banner" hidden></div>
+
+  <div class="card">
+    <div class="cardhead">
+      <h2>Verlauf</h2>
+      <div class="seg" id="range">
+        <button data-r="30" class="active">30 T</button>
+        <button data-r="90">90 T</button>
+        <button data-r="all">Alle</button>
+      </div>
+    </div>
+    <div id="chart-verlauf"></div>
+    <div class="legend"><span><i class="dot a"></i>Tag</span><span><i class="line"></i>Ø 7 Tage</span><span><i class="band"></i>Periode</span></div>
+  </div>
+
+  <div class="card">
+    <div class="cardhead">
+      <h2>Zyklus</h2>
+      <div class="seg" id="cyclemode">
+        <button data-m="since" class="active">ab Beginn</button>
+        <button data-m="until">vor Periode</button>
+      </div>
+    </div>
+    <p class="muted" id="cycle-desc"></p>
+    <div id="chart-zyklus"></div>
+    <h3>Phasen im Vergleich</h3>
+    <div class="scroll"><table id="phasetable"></table></div>
+    <p class="muted small">Phasen sind Näherungen nach Tagen seit Periodenbeginn. Gefühle: −1 = negativ, 0 = neutral, +1 = positiv.</p>
+  </div>
+
+  <div class="card">
+    <div class="cardhead">
+      <h2>Einflussfaktoren</h2>
+      <div class="seg" id="impactmode">
+        <button data-m="same" class="active">am Tag</button>
+        <button data-m="next">Folgetag</button>
+      </div>
+    </div>
+    <p class="muted" id="impact-desc"></p>
+    <div id="impact"></div>
+  </div>
+
+  <div class="card">
+    <h2>Gefühle insgesamt</h2>
+    <div id="feelings"></div>
+  </div>
+
+  <p class="muted small">Nach einigen Monaten (mindestens 2–3 Zyklen) werden die Muster aussagekräftig. Zusammenhänge sind keine Beweise für Ursache und Wirkung.</p>
+</section>
+
+<!-- DATEN -->
+<section id="tab-daten" class="tab">
+  <div class="card">
+    <h2>Erinnerung um 18 Uhr</h2>
+    <p class="muted">Die zuverlässigste Lösung auf dem Handy: ein täglich wiederkehrender Kalendertermin um 18:00 Uhr mit Benachrichtigung. Datei laden, öffnen, „Hinzufügen“ tippen.</p>
+    <button class="secondary" id="ics">Kalendertermin laden (.ics)</button>
+  </div>
+
+  <div class="card">
+    <h2>Export</h2>
+    <p class="muted"><span id="count">0</span> Einträge gespeichert.</p>
+    <button class="secondary" id="csv">Als CSV exportieren</button>
+    <button class="secondary" id="json">Backup (JSON) sichern</button>
+    <label class="secondary filebtn">Backup einspielen<input type="file" id="restore" accept="application/json,.json"></label>
+    <p class="muted small">Die Daten liegen nur auf diesem Gerät. Einmal im Monat ein Backup zu sichern ist eine gute Gewohnheit.</p>
+  </div>
+
+  <div class="card">
+    <h2>Installieren</h2>
+    <p class="muted" id="installtext">Im Chrome-Menü (⋮) „App installieren“ oder „Zum Startbildschirm hinzufügen“ wählen. Als installierte App bleiben die Daten dauerhaft erhalten.</p>
+    <button class="secondary" id="install" hidden>Als App installieren</button>
+  </div>
+</section>
+</main>
+
+<div id="toast" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>
