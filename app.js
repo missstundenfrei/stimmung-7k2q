@@ -18,6 +18,28 @@ const TRI = [
   ['kraftvoll', 'kraftlos', 'kraftvoll', 'Kraftvoll'],
 ];
 
+// Gute Gefühle: Familie -> [Hintergrund, Schrift, Name]; warme Töne von Gelb bis Rot
+const FAM = {
+  sonne: ['#FFE45C', '#4A3300', 'Sonne'],
+  ruhe: ['#FFC93C', '#4A2C00', 'Ruhe'],
+  weite: ['#FFA94D', '#4A2100', 'Weite'],
+  energie: ['#FF7A2F', '#3D1200', 'Energie'],
+  staerke: ['#FF5E4D', '#3D0A05', 'Stärke'],
+  herz: ['#F2385A', '#FFF3F0', 'Herz'],
+};
+// [Begriff, Familie, Größe 1–3]
+const WORDS = [
+  ['Freude', 'sonne', 3], ['Heiterkeit', 'sonne', 1], ['Spaß', 'sonne', 2], ['Leichtigkeit', 'sonne', 2],
+  ['Begeisterung', 'energie', 3], ['Aufregung', 'energie', 1], ['Lebendigkeit', 'energie', 2], ['Mut', 'energie', 1],
+  ['Liebe', 'herz', 3], ['Verbundenheit', 'herz', 2], ['Mitgefühl', 'herz', 1], ['Geborgenheit', 'herz', 2], ['Zärtlichkeit', 'herz', 1],
+  ['Stolz', 'staerke', 2], ['Selbstvertrauen', 'staerke', 2], ['Zufriedenheit', 'staerke', 3], ['Erfüllung', 'staerke', 1],
+  ['Vorfreude', 'weite', 3], ['Hoffnung', 'weite', 2], ['Neugier', 'weite', 1], ['Inspiration', 'weite', 2], ['Staunen', 'weite', 1],
+  ['Dankbarkeit', 'ruhe', 3], ['Gelassenheit', 'ruhe', 2], ['Erleichterung', 'ruhe', 1],
+];
+const CLOUD_ORDER = [0, 17, 8, 22, 4, 13, 1, 9, 18, 15, 5, 23, 2, 10, 19, 6, 14, 24, 3, 11, 20, 7, 16, 12, 21];
+const famOf = w => { const x = WORDS.find(v => v[0] === w); return FAM[x ? x[1] : 'weite']; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 /* ---------- Datum ---------- */
 const pad = n => String(n).padStart(2, '0');
 const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -75,6 +97,49 @@ function markTri() {
   });
 }
 
+/* ---------- Begriffswolke ---------- */
+let picked = []; // [{w, note}]
+function renderGood(justAdded) {
+  const cloud = $('cloud');
+  cloud.innerHTML = '';
+  CLOUD_ORDER.forEach(i => {
+    const [w, f, s] = WORDS[i];
+    if (picked.some(p => p.w === w)) return;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip s' + s; b.textContent = w;
+    b.style.background = FAM[f][0]; b.style.color = FAM[f][1];
+    b.style.setProperty('--d', (2.6 + ((i * 37) % 17) / 10).toFixed(2) + 's');
+    b.style.setProperty('--dl', (-((i * 53) % 30) / 10).toFixed(2) + 's');
+    b.style.setProperty('--x', (((i * 29) % 5) - 2) + 'px');
+    b.style.setProperty('--y', (2 + (i * 13) % 3) + 'px');
+    b.onclick = () => { picked.push({ w, note: '' }); renderGood(w); };
+    cloud.appendChild(b);
+  });
+  const box = $('picked');
+  box.innerHTML = '';
+  picked.forEach(p => {
+    const [bg, ink] = famOf(p.w);
+    const d = document.createElement('div');
+    d.className = 'good' + (p.w === justAdded ? ' new' : '');
+    d.style.background = bg; d.style.color = ink;
+    d.innerHTML = `<div class="hd"><span>${esc(p.w)}</span><button type="button" class="x" aria-label="${esc(p.w)} entfernen">×</button></div>
+      <input type="text" maxlength="80" placeholder="Wann, mit wem, wobei?" enterkeyhint="done">`;
+    const inp = d.querySelector('input');
+    inp.value = p.note;
+    inp.oninput = () => { p.note = inp.value; };
+    inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } };
+    d.querySelector('.x').onclick = () => { picked = picked.filter(q => q !== p); renderGood(); };
+    box.appendChild(d);
+  });
+  const n = picked.length;
+  $('goodhint').textContent = n === 0 ? 'Wähle mindestens 3 Gefühle, die dich ansprechen.'
+    : n < 3 ? `${n} gewählt, 3 sind schön – an schweren Tagen reicht auch eins.` : `${n} gewählt. Gern noch mehr.`;
+  if (justAdded) {
+    const last = box.lastElementChild;
+    if (last) last.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
 function fill(day) {
   current = day;
   const e = data[day];
@@ -87,6 +152,8 @@ function fill(day) {
   TRI.forEach(([k]) => form.elements[k].value = e ? e[k] : 0);
   $('tagval').textContent = form.elements.tag.value;
   markTri();
+  picked = e && Array.isArray(e.gut) ? e.gut.map(g => ({ w: g.w, note: g.note || '' })) : [];
+  renderGood();
   $('next').disabled = day >= today();
   $('next').style.opacity = day >= today() ? .3 : 1;
   $('status').textContent = e ? 'Für diesen Tag gibt es schon einen Eintrag – Speichern überschreibt ihn.' : '';
@@ -100,9 +167,15 @@ $('date').onchange = e => { if (e.target.value) fill(e.target.value > today() ? 
 
 form.addEventListener('submit', ev => {
   ev.preventDefault();
+  if (!picked.length) {
+    toast('Wähle mindestens ein schönes Gefühl');
+    $('goodcard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   const e = { tag: +form.elements.tag.value, updated: new Date().toISOString() };
   BOOLS.forEach(([k]) => e[k] = form.elements[k].checked);
   TRI.forEach(([k]) => e[k] = +form.elements[k].value);
+  e.gut = picked.map(p => ({ w: p.w, note: p.note.trim() }));
   data[current] = e;
   persist();
   fill(current);
@@ -153,7 +226,44 @@ function renderAuswertung() {
   } else if (ds.length < 14) {
     hint.hidden = false; hint.textContent = `Bisher ${ds.length} Einträge. Aussagekräftig wird es ab etwa 2–3 Zyklen (rund 3 Monate).`;
   } else hint.hidden = true;
-  verlauf(); zyklus(); einfluss(); gefuehle();
+  verlauf(); zyklus(); einfluss(); gefuehle(); guteGefuehle();
+}
+
+/* ---------- Auswertung: Gute Gefühle ---------- */
+const PHASES = [
+  ['Menstruation (1–5)', 1, 5], ['Follikel (6–11)', 6, 11],
+  ['Eisprung-Zeit (12–16)', 12, 16], ['Lutealphase (17+)', 17, 45],
+];
+const tagHtml = w => { const [bg, ink] = famOf(w); return `<span class="tag" style="background:${bg};color:${ink}">${esc(w)}</span>`; };
+function countWords(ds) {
+  const c = {};
+  ds.forEach(d => (data[d].gut || []).forEach(g => { c[g.w] = (c[g.w] || 0) + 1; }));
+  return Object.entries(c).sort((a, b) => b[1] - a[1]);
+}
+function guteGefuehle() {
+  const ds = dates().filter(d => (data[d].gut || []).length);
+  if (!ds.length) {
+    $('good').innerHTML = '<p class="muted">Noch keine guten Gefühle eingetragen.</p>';
+    $('goodphase').innerHTML = ''; $('moments').innerHTML = '<p class="muted">Hier sammeln sich Katis schöne Momente.</p>';
+    return;
+  }
+  const counts = countWords(ds);
+  const max = counts[0][1];
+  $('good').innerHTML = counts.slice(0, 12).map(([w, n]) =>
+    `<div class="freq"><span>${esc(w)}</span><div class="track"><div class="fill" style="width:${n / max * 100}%;background:${famOf(w)[0]}"></div></div><b>${n}</b></div>`).join('');
+
+  const { info } = cycleInfo();
+  $('goodphase').innerHTML = PHASES.map(([name, a, b]) => {
+    const pd = ds.filter(d => { const k = info[d].since; return k !== null && k >= a && k <= b; });
+    const top = countWords(pd).slice(0, 4);
+    return `<div class="phase"><div class="muted small">${name} · ${pd.length} Tage</div><div class="tags">${top.length ? top.map(([w]) => tagHtml(w)).join('') : '<span class="muted small">noch keine Daten</span>'}</div></div>`;
+  }).join('');
+
+  const moments = [];
+  [...ds].reverse().forEach(d => (data[d].gut || []).forEach(g => { if (g.note) moments.push([d, g]); }));
+  $('moments').innerHTML = moments.length
+    ? moments.slice(0, 30).map(([d, g]) => `<div class="moment"><span class="when">${fmtShort(d)}</span>${tagHtml(g.w)}<span>${esc(g.note)}</span></div>`).join('')
+    : '<p class="muted">Noch keine Notizen zu den Gefühlen.</p>';
 }
 
 function verlauf() {
@@ -220,10 +330,7 @@ function zyklus() {
   box.innerHTML = s + '</svg>';
 
   // Phasentabelle
-  const phases = [
-    ['Menstruation (1–5)', 1, 5], ['Follikel (6–11)', 6, 11],
-    ['Eisprung-Zeit (12–16)', 12, 16], ['Lutealphase (17+)', 17, 45],
-  ];
+  const phases = PHASES;
   let h = '<tr><th>Phase</th><th>n</th><th>Tag</th>' + TRI.map(t => `<th>${t[3]}</th>`).join('') + '</tr>';
   phases.forEach(([name, a, b]) => {
     const es = dates().filter(d => { const k = info[d].since; return k !== null && k >= a && k <= b; }).map(d => data[d]);
@@ -294,11 +401,14 @@ function download(name, text, type) {
 
 $('csv').onclick = () => {
   const head = ['datum', 'periode', 'sport', 'gut_geschlafen', 'wein', 'leichter_start', 'tag_0_10',
-    'zuversicht', 'selbstbewusst', 'froehlich', 'unbekuemmert', 'kraftvoll'];
+    'zuversicht', 'selbstbewusst', 'froehlich', 'unbekuemmert', 'kraftvoll', 'gute_gefuehle', 'notizen'];
+  const q = s => /[;"\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   const lines = [head.join(';')];
   dates().forEach(d => {
     const e = data[d];
-    lines.push([d, ...BOOLS.map(([k]) => e[k] ? 1 : 0), e.tag, ...TRI.map(([k]) => e[k])].join(';'));
+    const gut = e.gut || [];
+    lines.push([d, ...BOOLS.map(([k]) => e[k] ? 1 : 0), e.tag, ...TRI.map(([k]) => e[k]),
+      q(gut.map(g => g.w).join(', ')), q(gut.filter(g => g.note).map(g => `${g.w}: ${g.note}`).join(' | '))].join(';'));
   });
   download(`stimmung-${today()}.csv`, '﻿' + lines.join('\r\n'), 'text/csv;charset=utf-8');
 };
